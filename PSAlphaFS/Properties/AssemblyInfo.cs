@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // Allgemeine Informationen über eine Assembly werden über die folgenden 
 // Attribute gesteuert. Ändern Sie diese Attributwerte, um die Informationen zu ändern,
 // die einer Assembly zugeordnet sind.
-[assembly: AssemblyTitle("PSAlphaFS")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("PSAlphaFS.net")]
+[assembly: AssemblyDescription("Powershell Commandlets wrapping AlphaFS")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("PSAlphaFS")]
-[assembly: AssemblyCopyright("Copyright ©  2016")]
+[assembly: AssemblyProduct("PSAlphaFS.net")]
+[assembly: AssemblyCopyright("Copyright © Simon Klein 2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
