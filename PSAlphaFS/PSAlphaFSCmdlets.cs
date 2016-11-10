@@ -80,6 +80,8 @@ namespace PSAlphaFS
         private bool dodirs = false;
         private bool dofiles = false;
 
+        private Alphaleonis.Win32.Security.PrivilegeEnabler priv;
+
         protected override void BeginProcessing()
         {
             dofiles = file || (!file && !directory);
@@ -88,7 +90,46 @@ namespace PSAlphaFS
             {
                 path = new string[] { this.SessionState.Path.CurrentFileSystemLocation.Path };
             }
+            priv = new Alphaleonis.Win32.Security.PrivilegeEnabler(Alphaleonis.Win32.Security.Privilege.Backup);
         }
+
+        protected override void ProcessRecord()
+        {
+            try
+            {
+                foreach (string p in path)
+                {
+                    FileInfo pO = new FileInfo(p);
+                    if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                    {
+                        if (dodirs) enumerateDirs(p);
+                        if (dofiles) enumerateFiles(p);
+                    }
+                    else
+                    {
+                        if (name) WriteObject(p);
+                        else WriteObject(new FileInfo(p));
+                    }
+                }
+            }
+            catch (PipelineStoppedException e)
+            {
+                return;
+            }
+        }
+
+        protected override void EndProcessing()
+        {
+            if (priv != null) priv.Dispose();
+            base.EndProcessing();
+        }
+
+        protected override void StopProcessing()
+        {
+            if (priv != null) priv.Dispose();
+            base.StopProcessing();
+        }
+
 
         private void enumerateDirs(string path)
         {
@@ -127,41 +168,6 @@ namespace PSAlphaFS
                 if (p.IsMatch(compare)) return true;
             }
             return false;
-        }
-
-        protected override void ProcessRecord()
-        {
-            try
-            {
-                foreach (string p in path)
-                {
-                    FileInfo pO = new FileInfo(p);
-                    if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
-                    {
-                        if (dodirs) enumerateDirs(p);
-                        if (dofiles) enumerateFiles(p);
-                    }
-                    else
-                    {
-                        if (name) WriteObject(p);
-                        else WriteObject(new FileInfo(p));
-                    }
-                }
-            }
-            catch (PipelineStoppedException e)
-            {
-                return;
-            }
-        }
-
-        protected override void EndProcessing()
-        {
-            base.EndProcessing();
-        }
-
-        protected override void StopProcessing()
-        {
-            base.StopProcessing();
         }
     }
 }
