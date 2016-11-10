@@ -9,7 +9,7 @@
 @{
 
 # Script module or binary module file associated with this manifest.
- RootModule = 'PSAlphaFS.dll'
+ RootModule = 'PSAlphaFSnet.dll'
 
 # Version number of this module.
 ModuleVersion = '1.0.0.0'
@@ -78,10 +78,10 @@ VariablesToExport = '*'
 AliasesToExport = '*'
 
 # List of all modules packaged with this module.
-ModuleList = @('PSAlphaFS.dll')
+ModuleList = @('PSAlphaFSnet.dll')
 
 # List of all files packaged with this module
- FileList = @('PSAlphaFS.dll','PSAlphaFS.psd1')
+ FileList = @('PSAlphaFSnet.dll','PSAlphaFSnet.psd1','AlphaFS.dll')
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''

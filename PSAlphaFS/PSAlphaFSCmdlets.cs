@@ -5,7 +5,7 @@ using System.Text;
 using System.Management.Automation;
 using Alphaleonis.Win32.Filesystem;
 
-namespace PSAlphaFS
+namespace PSAlphaFSnet
 {
     [Cmdlet(VerbsCommon.Get, "LongChildItem", DefaultParameterSetName = "Path")]
     public class GetLongChildItem : PSCmdlet

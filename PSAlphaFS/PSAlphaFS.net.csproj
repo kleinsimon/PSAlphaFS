@@ -7,7 +7,7 @@
     <ProjectGuid>{8DE1C97A-FC22-4DC0-8380-07D0E0F11E48}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>PSAlphaFS</RootNamespace>
+    <RootNamespace>PSAlphaFSnet</RootNamespace>
     <AssemblyName>PSAlphaFS.net</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
