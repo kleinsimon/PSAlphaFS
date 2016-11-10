@@ -320,6 +320,12 @@ namespace PSAlphaFS
             }
         }
         private string[] _path, _litpath;
+        [Parameter(
+            Position = 1,
+            Mandatory = false,
+            ValueFromPipeline = false,
+            ValueFromPipelineByPropertyName = true)
+        ]
         public string Destination { get; set; }
         [Parameter()]
         public SwitchParameter Force { get; set; }
@@ -358,6 +364,89 @@ namespace PSAlphaFS
                     Directory.Copy(origpath, tmpdst, Force);
                 else
                     File.Copy(origpath, tmpdst, Force);
+            }
+        }
+    }
+
+    [Cmdlet(VerbsCommon.Move, "LongItem", DefaultParameterSetName = "Path")]
+    public class MoveLongItem : PSCmdlet
+    {
+        [Alias("Path")]
+        [Parameter(
+            Position = 0,
+            Mandatory = true,
+            ValueFromPipeline = true,
+            ValueFromPipelineByPropertyName = true,
+            ParameterSetName = "Path")
+            ]
+        public string[] FullName
+        {
+            set
+            {
+                _path = value;
+            }
+        }
+        [Parameter(
+            Position = 0,
+            Mandatory = false,
+            ValueFromPipeline = false,
+            ValueFromPipelineByPropertyName = true,
+            ParameterSetName = "Literal")
+        ]
+        [Alias("PSPath")]
+        [ValidateNotNullOrEmpty]
+        public string[] LiteralPath
+        {
+            set
+            {
+                _litpath = value;
+            }
+        }
+        private string[] _path, _litpath;
+        [Parameter(
+            Position = 1,
+            Mandatory = true,
+            ValueFromPipeline = false,
+            ValueFromPipelineByPropertyName = true)
+        ]
+        public string Destination { get; set; }
+        [Parameter()]
+        public SwitchParameter Force { get; set; }
+
+        private List<string> Paths = new List<string>();
+
+        protected override void BeginProcessing()
+        {
+            ProviderInfo provider;
+            PSDriveInfo drive;
+
+            if (_path != null)
+                foreach (var s in _path)
+                    Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
+
+            if (_litpath != null)
+                foreach (var s in _litpath)
+                    Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
+        }
+
+        protected override void ProcessRecord()
+        {
+            string dstpath = this.GetUnresolvedProviderPathFromPSPath(Destination);
+            FileInfo dstobj = new FileInfo(dstpath);
+
+            foreach (string origpath in Paths)
+            {
+                string tmpdst = dstpath;
+                FileInfo pO = new FileInfo(origpath);
+                if (Directory.Exists(dstpath))
+                {
+                    tmpdst = Path.Combine(dstpath, Path.GetFileName(origpath));
+                }
+
+                if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                    Directory.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                else
+                    File.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
             }
         }
     }
