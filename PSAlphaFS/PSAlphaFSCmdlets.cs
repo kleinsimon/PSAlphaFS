@@ -104,7 +104,6 @@ namespace PSAlphaFSnet
         private string filter = "*";
 
         private Alphaleonis.Win32.Security.PrivilegeEnabler priv;
-        private List<string> Paths = new List<string>();
 
         protected override void BeginProcessing()
         {
@@ -113,17 +112,6 @@ namespace PSAlphaFSnet
                 _path = new string[] { @".\" };
             }
 
-            ProviderInfo provider;
-            PSDriveInfo drive;
-
-            if (_path != null)
-                foreach (var s in _path)
-                    Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
-
-            if (_litpath != null)
-                foreach (var s in _litpath)
-                    Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
-
             priv = new Alphaleonis.Win32.Security.PrivilegeEnabler(Alphaleonis.Win32.Security.Privilege.Backup);
         }
 
@@ -131,14 +119,25 @@ namespace PSAlphaFSnet
         {
             try
             {
+                ProviderInfo provider;
+                PSDriveInfo drive;
+                List<string> Paths = new List<string>();
+                if (_path != null)
+                    foreach (var s in _path)
+                        Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
+
+                if (_litpath != null)
+                    foreach (var s in _litpath)
+                        Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
+
                 foreach (string p in Paths)
                 {
                     FileInfo pO = new FileInfo(p);
                     if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
                     {
-                        if (directory && !file) enumerateDirs(p);
-                        else if (!directory && file) enumerateFiles(p);
-                        else enumerateAll(p);
+                        if (directory && !file) enumerateFS(Alphaleonis.Win32.Filesystem.Directory.EnumerateDirectories(p, (filter ?? "*"), search_option));
+                        else if (!directory && file) enumerateFS(Alphaleonis.Win32.Filesystem.Directory.EnumerateFiles(p, (filter ?? "*"), search_option));
+                        else enumerateFS(Alphaleonis.Win32.Filesystem.Directory.EnumerateFileSystemEntries(p, (filter ?? "*"), search_option));
                     }
                     else
                     {
@@ -165,26 +164,10 @@ namespace PSAlphaFSnet
             base.StopProcessing();
         }
 
-
-        private void enumerateDirs(string path)
+        private void enumerateFS(IEnumerable<string> path)
         {
-            IEnumerable<string> dirs = Alphaleonis.Win32.Filesystem.Directory.EnumerateDirectories(path, (filter ?? "*"), search_option);
-            foreach (string dir in dirs)
-            {
-                string dirname = Alphaleonis.Win32.Filesystem.Path.GetFileName(dir);
-                if (includes.Count > 0 && !checkMatchesAny(includes, dirname)) continue;
-                if (checkMatchesAny(excludes, dirname)) continue;
-                if (name)
-                    WriteObject(dir);
-                else
-                    WriteObject(new DirectoryInfo(dir));
-            }
-        }
 
-        private void enumerateFiles(string path)
-        {
-            IEnumerable<string> files = Alphaleonis.Win32.Filesystem.Directory.EnumerateFiles(path, (filter ?? "*"), search_option);
-            foreach (string f in files)
+            foreach (string f in path)
             {
                 string filename = Alphaleonis.Win32.Filesystem.Path.GetFileName(f);
                 if (includes.Count > 0 && !checkMatchesAny(includes, filename)) continue;
@@ -193,21 +176,6 @@ namespace PSAlphaFSnet
                     WriteObject(f);
                 else
                     WriteObject(new FileInfo(f));
-            }
-        }
-
-        private void enumerateAll(string path)
-        {
-            IEnumerable<string> dirs = Alphaleonis.Win32.Filesystem.Directory.EnumerateFileSystemEntries(path, (filter ?? "*"), search_option);
-            foreach (string dir in dirs)
-            {
-                string dirname = Alphaleonis.Win32.Filesystem.Path.GetFileName(dir);
-                if (includes.Count > 0 && !checkMatchesAny(includes, dirname)) continue;
-                if (checkMatchesAny(excludes, dirname)) continue;
-                if (name)
-                    WriteObject(dir);
-                else
-                    WriteObject(new FileInfo(dir));
             }
         }
 
@@ -256,7 +224,6 @@ namespace PSAlphaFSnet
             }
         }
         private string[] _path, _litpath;
-        private List<string> Paths = new List<string>();
 
         protected override void BeginProcessing()
         {
@@ -264,9 +231,13 @@ namespace PSAlphaFSnet
             {
                 _path = new string[] { this.SessionState.Path.CurrentFileSystemLocation.Path };
             }
+        }
+
+        protected override void ProcessRecord()
+        {
             ProviderInfo provider;
             PSDriveInfo drive;
-
+            List<string> Paths = new List<string>();
             if (_path != null)
                 foreach (var s in _path)
                     Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
@@ -274,10 +245,6 @@ namespace PSAlphaFSnet
             if (_litpath != null)
                 foreach (var s in _litpath)
                     Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
-        }
-
-        protected override void ProcessRecord()
-        {
 
             foreach (var ptmp in Paths)
             {
@@ -332,13 +299,16 @@ namespace PSAlphaFSnet
         [Parameter()]
         public SwitchParameter Force { get; set; }
 
-        private List<string> Paths = new List<string>();
-
         protected override void BeginProcessing()
+        {
+            
+        }
+
+        protected override void ProcessRecord()
         {
             ProviderInfo provider;
             PSDriveInfo drive;
-
+            List<string> Paths = new List<string>();
             if (_path != null)
                 foreach (var s in _path)
                     Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
@@ -346,10 +316,7 @@ namespace PSAlphaFSnet
             if (_litpath != null)
                 foreach (var s in _litpath)
                     Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
-        }
 
-        protected override void ProcessRecord()
-        {
             string dstpath = this.GetUnresolvedProviderPathFromPSPath(Destination);
             FileInfo dstobj = new FileInfo(dstpath);
 
@@ -415,12 +382,16 @@ namespace PSAlphaFSnet
         [Parameter()]
         public SwitchParameter Force { get; set; }
 
-        private List<string> Paths = new List<string>();
-
         protected override void BeginProcessing()
+        {
+            
+        }
+
+        protected override void ProcessRecord()
         {
             ProviderInfo provider;
             PSDriveInfo drive;
+            List<string> Paths = new List<string>();
 
             if (_path != null)
                 foreach (var s in _path)
@@ -429,10 +400,7 @@ namespace PSAlphaFSnet
             if (_litpath != null)
                 foreach (var s in _litpath)
                     Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
-        }
 
-        protected override void ProcessRecord()
-        {
             string dstpath = this.GetUnresolvedProviderPathFromPSPath(Destination);
             FileInfo dstobj = new FileInfo(dstpath);
 
@@ -494,12 +462,16 @@ namespace PSAlphaFSnet
         [Parameter()]
         public SwitchParameter Force { get; set; }
 
-        private List<string> Paths = new List<string>();
-
         protected override void BeginProcessing()
+        {
+            
+        }
+
+        protected override void ProcessRecord()
         {
             ProviderInfo provider;
             PSDriveInfo drive;
+            List<string> Paths = new List<string>();
 
             if (_path != null)
                 foreach (var s in _path)
@@ -508,10 +480,7 @@ namespace PSAlphaFSnet
             if (_litpath != null)
                 foreach (var s in _litpath)
                     Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
-        }
 
-        protected override void ProcessRecord()
-        {
             foreach (string origpath in Paths)
             {
                 FileInfo pO = new FileInfo(origpath);
@@ -520,6 +489,74 @@ namespace PSAlphaFSnet
                     Directory.Delete(origpath, Recurse, Force);
                 else
                     File.Delete(origpath, Force);
+            }
+        }
+
+        [Cmdlet("Monitor", "Collection")]
+        public class MonitorCollection : Cmdlet
+        {
+            [Parameter(Mandatory = true, ValueFromPipeline = true)]
+            public PSObject[] InputObject { get; set; }
+            [Parameter()]
+            public string[] Property { get; set; }
+
+            private Dictionary<string, data> Data = new Dictionary<string, data>();
+            private int Count = 0;
+            class data
+            {
+                public double Sum = 0;
+                public double Average = double.NaN;
+                public double Maximum = double.NaN;
+                public double Minimum = double.NaN;
+            }
+
+            protected override void BeginProcessing()
+            {
+                foreach (string parm in Property)
+                    Data.Add(parm, new data());
+
+            }
+
+            protected override void ProcessRecord()
+            {
+                foreach (PSObject o in InputObject)
+                {
+                    Count++;
+                    foreach (string parm in Property)
+                    {
+                        try
+                        {
+                            double v = (double)o.Properties[parm].Value;
+                            Data[parm].Sum += v;
+                            Data[parm].Average = Data[parm].Sum / (double)Count;
+                            Data[parm].Maximum = (Data[parm].Maximum == double.NaN) ? v : Math.Max(Data[parm].Maximum, v);
+                            Data[parm].Minimum = (Data[parm].Minimum == double.NaN) ? v : Math.Min(Data[parm].Minimum, v);
+                        }
+                        catch
+                        {
+
+                        }
+                    }
+                    DisplayRes();
+                }
+            }
+
+            protected override void EndProcessing()
+            {
+                WriteObject(Data);
+            }
+
+            private void DisplayRes()
+            {
+                string prog = string.Format("`rCount:`t%n", Count);
+                foreach (var kv in Data)
+                {
+                    var parm = kv.Key;
+                    var data = kv.Value;
+
+                    prog += string.Format("%s: %s=%f`t%s=%f`t%s=%f`t%s=%f`t", parm, "Sum", data.Sum, "Average", data.Average, "Max", data.Maximum, "Min", data.Minimum);
+                }
+                WriteVerbose(prog);
             }
         }
     }
