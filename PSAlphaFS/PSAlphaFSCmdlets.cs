@@ -123,6 +123,8 @@ namespace PSAlphaFSnet
             if (_litpath != null)
                 foreach (var s in _litpath)
                     Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
+
+            priv = new Alphaleonis.Win32.Security.PrivilegeEnabler(Alphaleonis.Win32.Security.Privilege.Backup);
         }
 
         protected override void ProcessRecord()
