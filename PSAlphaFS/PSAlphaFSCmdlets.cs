@@ -51,10 +51,7 @@ namespace PSAlphaFSnet
         [Parameter(Mandatory = false)]
         public SwitchParameter Recurse
         {
-            set
-            {
-                search_option = (value) ? System.IO.SearchOption.AllDirectories : System.IO.SearchOption.TopDirectoryOnly;
-            }
+            set { recurse = value; }
         }
 
         // Multiple string names to exclude    
@@ -95,12 +92,17 @@ namespace PSAlphaFSnet
         [Parameter(Mandatory = false)]
         public SwitchParameter Name { set { name = value; } }
 
-        private System.IO.SearchOption search_option;
+        [Parameter(Mandatory = false)]
+        public SwitchParameter Force { set { force = value; } }
+
         private List<WildcardPattern> includes = new List<WildcardPattern>();
         private List<WildcardPattern> excludes = new List<WildcardPattern>();
         private bool directory = false;
         private bool file = false;
         private bool name = false;
+        private bool force = false;
+        private bool recurse = false;
+        private DirectoryEnumerationOptions dopt;
         private string filter = "*";
 
         private Alphaleonis.Win32.Security.PrivilegeEnabler priv;
@@ -111,8 +113,19 @@ namespace PSAlphaFSnet
             {
                 _path = new string[] { @".\" };
             }
+            if (force)
+                priv = new Alphaleonis.Win32.Security.PrivilegeEnabler(Alphaleonis.Win32.Security.Privilege.Backup);
 
-            priv = new Alphaleonis.Win32.Security.PrivilegeEnabler(Alphaleonis.Win32.Security.Privilege.Backup);
+            dopt = DirectoryEnumerationOptions.BasicSearch | DirectoryEnumerationOptions.ContinueOnException | DirectoryEnumerationOptions.LargeCache;
+            if (recurse)
+                dopt |= DirectoryEnumerationOptions.Recursive;
+            if (directory && !file)
+                dopt |= DirectoryEnumerationOptions.Folders;
+            else if (file && !directory)
+                dopt |= DirectoryEnumerationOptions.Files;
+            else
+                dopt |= DirectoryEnumerationOptions.FilesAndFolders;
+
         }
 
         protected override void ProcessRecord()
@@ -135,9 +148,7 @@ namespace PSAlphaFSnet
                     FileInfo pO = new FileInfo(p);
                     if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
                     {
-                        if (directory && !file) enumerateFS(Alphaleonis.Win32.Filesystem.Directory.EnumerateDirectories(p, (filter ?? "*"), search_option));
-                        else if (!directory && file) enumerateFS(Alphaleonis.Win32.Filesystem.Directory.EnumerateFiles(p, (filter ?? "*"), search_option));
-                        else enumerateFS(Alphaleonis.Win32.Filesystem.Directory.EnumerateFileSystemEntries(p, (filter ?? "*"), search_option));
+                        enumerateFS(Alphaleonis.Win32.Filesystem.Directory.EnumerateFileSystemEntries(p, (filter ?? ""), dopt));
                     }
                     else
                     {
@@ -169,13 +180,19 @@ namespace PSAlphaFSnet
 
             foreach (string f in path)
             {
-                string filename = Alphaleonis.Win32.Filesystem.Path.GetFileName(f);
+                string filename = Path.GetFileName(f);
                 if (includes.Count > 0 && !checkMatchesAny(includes, filename)) continue;
-                if (checkMatchesAny(excludes, filename)) continue;
+                if (excludes.Count > 0 && checkMatchesAny(excludes, filename)) continue;
                 if (name)
                     WriteObject(f);
                 else
-                    WriteObject(new FileInfo(f));
+                {
+                    var fi = new FileInfo(f);
+                    if (fi.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                        WriteObject(new DirectoryInfo(f));
+                    else
+                        WriteObject(fi);
+                }
             }
         }
 
@@ -184,6 +201,7 @@ namespace PSAlphaFSnet
             foreach (var p in patterns)
             {
                 if (p.IsMatch(compare.ToLower())) return true;
+                if (string.Equals(p.ToString(), compare, StringComparison.OrdinalIgnoreCase)) return true;
             }
             return false;
         }
@@ -301,7 +319,7 @@ namespace PSAlphaFSnet
 
         protected override void BeginProcessing()
         {
-            
+
         }
 
         protected override void ProcessRecord()
@@ -384,7 +402,7 @@ namespace PSAlphaFSnet
 
         protected override void BeginProcessing()
         {
-            
+
         }
 
         protected override void ProcessRecord()
@@ -464,7 +482,7 @@ namespace PSAlphaFSnet
 
         protected override void BeginProcessing()
         {
-            
+
         }
 
         protected override void ProcessRecord()
@@ -492,71 +510,167 @@ namespace PSAlphaFSnet
             }
         }
 
-        [Cmdlet("Monitor", "Collection")]
-        public class MonitorCollection : Cmdlet
+        [Cmdlet(VerbsCommon.Watch, "Pipeline")]
+        public class WatchPipeline : PSCmdlet
         {
-            [Parameter(Mandatory = true, ValueFromPipeline = true)]
+            [Parameter(Mandatory = true, ValueFromPipeline = true, HelpMessage = "Objects to measure. By default, these Objects are passed through the pipeline.")]
             public PSObject[] InputObject { get; set; }
-            [Parameter()]
+            [Parameter(HelpMessage = "The Properties of the input objects to measure (e.g. Length for Files)")]
             public string[] Property { get; set; }
+            [Parameter(HelpMessage = "Formats the output Values as Bytes (KB, MB etc)")]
+            public SwitchParameter Bytes { get; set; }
+            [Parameter(HelpMessage = "Returns an objects with the stats when finished instead of passing through the input objects")]
+            public SwitchParameter GetStats { get; set; }
+            [Parameter(HelpMessage = "Surpresses live output... if you really want")]
+            public SwitchParameter NoOutput { get; set; }
 
-            private Dictionary<string, data> Data = new Dictionary<string, data>();
-            private int Count = 0;
-            class data
+            private Dictionary<string, Data> data = new Dictionary<string, Data>();
+            private long count = 0;
+            private bool hasData = false;
+            public class Data
             {
+                public string Name = "";
                 public double Sum = 0;
                 public double Average = double.NaN;
                 public double Maximum = double.NaN;
                 public double Minimum = double.NaN;
+                public long NotEvaluated = 0;
+
+                public Data(string name)
+                {
+                    Name = name;
+                }
             }
+            public class ByteData
+            {
+                public string Name;
+                public ReadableByte Sum;
+                public ReadableByte Average;
+                public ReadableByte Maximum;
+                public ReadableByte Minimum;
+                public long NotEvaluated;
+
+                public ByteData(Data src)
+                {
+                    Name = src.Name;
+                    Sum = src.Sum;
+                    Average = src.Average;
+                    Maximum = src.Maximum;
+                    Minimum = src.Minimum;
+                    NotEvaluated = src.NotEvaluated;
+                }
+            }
+
+            ProgressRecord pr = new ProgressRecord(0, "Measuring Objects in Pipeline", "test");
 
             protected override void BeginProcessing()
             {
                 foreach (string parm in Property)
-                    Data.Add(parm, new data());
-
+                    data.Add(parm, new Data(parm));
             }
 
             protected override void ProcessRecord()
             {
                 foreach (PSObject o in InputObject)
                 {
-                    Count++;
+                    count++;
                     foreach (string parm in Property)
                     {
                         try
                         {
-                            double v = (double)o.Properties[parm].Value;
-                            Data[parm].Sum += v;
-                            Data[parm].Average = Data[parm].Sum / (double)Count;
-                            Data[parm].Maximum = (Data[parm].Maximum == double.NaN) ? v : Math.Max(Data[parm].Maximum, v);
-                            Data[parm].Minimum = (Data[parm].Minimum == double.NaN) ? v : Math.Min(Data[parm].Minimum, v);
+                            double v = Convert.ToDouble(o.Properties[parm].Value);
+                            Data d = data[parm];
+                            d.Sum += v;
+                            d.Average = d.Sum / count;
+                            d.Maximum = (double.IsNaN(d.Maximum)) ? v : Math.Max(d.Maximum, v);
+                            d.Minimum = (double.IsNaN(d.Minimum)) ? v : Math.Min(d.Minimum, v);
+                            hasData = true;
+                            if (!NoOutput)
+                                DisplayRes();
                         }
                         catch
                         {
-
+                            data[parm].NotEvaluated++;
                         }
                     }
-                    DisplayRes();
+                    if (!GetStats)
+                        WriteObject(o);
                 }
             }
 
             protected override void EndProcessing()
             {
-                WriteObject(Data);
+                if (GetStats)
+                {
+                    if (hasData)
+                        if (Bytes)
+                            foreach (var d in data.Values)
+                                WriteObject(new ByteData(d));
+                        else
+                            WriteObject(data.Values.ToArray());
+                    else
+                        WriteObject(count);
+                }
+            }
+
+            protected override void StopProcessing()
+            {
+                WriteWarning("Stopped Operation");
+                EndProcessing();
             }
 
             private void DisplayRes()
             {
-                string prog = string.Format("`rCount:`t%n", Count);
-                foreach (var kv in Data)
+                string prog = string.Format("Count={0,4}", count);
+                foreach (var kv in data)
                 {
                     var parm = kv.Key;
-                    var data = kv.Value;
+                    dynamic dat;
 
-                    prog += string.Format("%s: %s=%f`t%s=%f`t%s=%f`t%s=%f`t", parm, "Sum", data.Sum, "Average", data.Average, "Max", data.Maximum, "Min", data.Minimum);
+                    if (Bytes)
+                        dat = new ByteData(kv.Value);
+                    else
+                        dat = kv.Value;
+
+                    prog += string.Format("{0,10}: {1,4}={2,8}{3,8}={4,8}{5,8}={6,8}{7,8}={8,8}", parm, "Sum", dat.Sum, "Average", dat.Average, "Max", dat.Maximum, "Min", dat.Minimum);
                 }
-                WriteVerbose(prog);
+                pr.CurrentOperation = prog;
+                CommandRuntime.WriteProgress(pr);
+            }
+        }
+        public class ReadableByte
+        {
+            public double Value { get; private set; }
+
+            public ReadableByte(double d)
+            {
+                Value = d;
+            }
+
+            public static implicit operator ReadableByte(double d)
+            {
+                return new ReadableByte(d);
+            }
+
+            public static implicit operator double(ReadableByte r)
+            {
+                return r.Value;
+            }
+
+            public override string ToString()
+            {
+                return B2S(this);
+            }
+
+            string B2S(double byteCount)
+            {
+                string[] suf = { "B", "KB", "MB", "GB", "TB", "PB", "EB" };
+                if (byteCount == 0)
+                    return "0" + suf[0];
+                double bytes = Math.Abs(byteCount);
+                int place = Convert.ToInt32(Math.Floor(Math.Log(bytes, 1024)));
+                double num = Math.Round(bytes / Math.Pow(1024, place), 1);
+                return (Math.Sign(byteCount) * num).ToString() + " " + suf[place];
             }
         }
     }
