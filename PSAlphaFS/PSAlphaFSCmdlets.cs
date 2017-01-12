@@ -8,6 +8,7 @@ using Alphaleonis.Win32.Filesystem;
 namespace PSAlphaFSnet
 {
     [Cmdlet(VerbsCommon.Get, "LongChildItem", DefaultParameterSetName = "Path")]
+    [OutputType(typeof(FileInfo))]
     public class GetLongChildItem : PSCmdlet
     {
         [Alias("Path")]
@@ -20,6 +21,10 @@ namespace PSAlphaFSnet
             ]
         public string[] FullName
         {
+            get
+            {
+                return _path;
+            }
             set
             {
                 _path = value;
@@ -208,6 +213,7 @@ namespace PSAlphaFSnet
     }
 
     [Cmdlet(VerbsCommon.Get, "LongItem", DefaultParameterSetName = "Path")]
+    [OutputType(typeof(FileInfo))]
     public class GetLongItem : PSCmdlet
     {
         [Alias("Path")]
@@ -220,6 +226,10 @@ namespace PSAlphaFSnet
             ]
         public string[] FullName
         {
+            get
+            {
+                return _path;
+            }
             set
             {
                 _path = value;
@@ -285,6 +295,10 @@ namespace PSAlphaFSnet
             ]
         public string[] FullName
         {
+            get
+            {
+                return _path;
+            }
             set
             {
                 _path = value;
@@ -375,6 +389,10 @@ namespace PSAlphaFSnet
             ]
         public string[] FullName
         {
+            get
+            {
+                return _path;
+            }
             set
             {
                 _path = value;
@@ -467,6 +485,10 @@ namespace PSAlphaFSnet
             ]
         public string[] FullName
         {
+            get
+            {
+                return _path;
+            }
             set
             {
                 _path = value;
