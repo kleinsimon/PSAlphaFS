@@ -550,6 +550,8 @@ namespace PSAlphaFSnet
         public SwitchParameter Force { get; set; }
         [Parameter(HelpMessage = "Simulate and print what would happen")]
         public SwitchParameter WhatIf { get; set; }
+        [Parameter(HelpMessage = "Pass the soon to be deleted items... useful for logging")]
+        public SwitchParameter PassThru { get; set; }
         protected override void BeginProcessing()
         {
 
@@ -579,6 +581,8 @@ namespace PSAlphaFSnet
                         Directory.Delete(origpath, Recurse, Force);
                     else
                         File.Delete(origpath, Force);
+                    if (PassThru)
+                        WriteObject(pO);
                 }
                 else
                 {
