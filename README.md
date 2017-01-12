@@ -7,11 +7,12 @@ This work was inspired by https://github.com/v2kiran/PSAlphaFS. Work in Progress
 
 By now, this module allows on-the-fly pipelineing of objects found using get-longchilditem. Thus, when searching a bigger data tree, objects are pushed in the pipe when found and can be processed using the other cmdlets. Watch-Pipeline is for watching such a crawling process, it displays live data of the objects found so far. You could do:
 
+```
 Get-LongChildItem -Recurce -Force -Include '*.jpg' -Exclude '*important*' -Path x:\ 
 | Watch-Pipeline -Property Length -Byte
 | Copy-LongItem -Destination B:\Backup -PassOriginal -Whatif
 | Remove-LongItem -Whatif
-
+```
 Implemented
 -----------
 * Get-LongChildItem
