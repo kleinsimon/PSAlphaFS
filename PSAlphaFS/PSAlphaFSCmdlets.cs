@@ -332,6 +332,10 @@ namespace PSAlphaFSnet
         public SwitchParameter Force { get; set; }
         [Parameter()]
         public SwitchParameter WhatIf { get; set; }
+        [Parameter(HelpMessage = "Give out new items after copying")]
+        public SwitchParameter PassThru { get; set; }
+        [Parameter(HelpMessage = "Give out the old items after copying")]
+        public SwitchParameter PassOriginal { get; set; }
         protected override void BeginProcessing()
         {
 
@@ -365,10 +369,23 @@ namespace PSAlphaFSnet
                 if (!WhatIf)
                 {
                     if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                    {
                         Directory.Copy(origpath, tmpdst, Force);
+                        if (PassThru)
+                            WriteObject(new DirectoryInfo(tmpdst));
+                        else if (PassOriginal)
+                            WriteObject(new DirectoryInfo(origpath));
+                    }
                     else
+                    {
                         File.Copy(origpath, tmpdst, Force);
-                }else
+                        if (PassThru)
+                            WriteObject(new FileInfo(tmpdst));
+                        else if (PassOriginal)
+                            WriteObject(pO);
+                    }
+                }
+                else
                 {
                     WriteObject("Copy Item " + origpath + " to " + tmpdst);
                 }
@@ -385,7 +402,8 @@ namespace PSAlphaFSnet
             Mandatory = true,
             ValueFromPipeline = true,
             ValueFromPipelineByPropertyName = true,
-            ParameterSetName = "Path")
+            ParameterSetName = "Path",
+            HelpMessage = "Items to move. Either a path or a related object.")
             ]
         public string[] FullName
         {
@@ -403,7 +421,8 @@ namespace PSAlphaFSnet
             Mandatory = false,
             ValueFromPipeline = false,
             ValueFromPipelineByPropertyName = true,
-            ParameterSetName = "Literal")
+            ParameterSetName = "Literal",
+            HelpMessage = "Liter path of the item to be moved")
         ]
         [Alias("PSPath")]
         [ValidateNotNullOrEmpty]
@@ -419,13 +438,16 @@ namespace PSAlphaFSnet
             Position = 1,
             Mandatory = true,
             ValueFromPipeline = false,
-            ValueFromPipelineByPropertyName = true)
+            ValueFromPipelineByPropertyName = true,
+            HelpMessage = "Destination to move the item(s) to")
         ]
         public string Destination { get; set; }
-        [Parameter()]
+        [Parameter(HelpMessage = "Force movement of protected files")]
         public SwitchParameter Force { get; set; }
-        [Parameter()]
+        [Parameter(HelpMessage = "only simulate, print out what would happen")]
         public SwitchParameter WhatIf { get; set; }
+        [Parameter(HelpMessage = "Give out items after moving")]
+        public SwitchParameter PassThru { get; set; }
         protected override void BeginProcessing()
         {
 
@@ -460,9 +482,17 @@ namespace PSAlphaFSnet
                 if (!WhatIf)
                 {
                     if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                    {
                         Directory.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                        if (PassThru)
+                            WriteObject(new DirectoryInfo(tmpdst));
+                    }
                     else
+                    {
                         File.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                        if (PassThru)
+                            WriteObject(new FileInfo(tmpdst));
+                    }
                 }
                 else
                 {
@@ -481,7 +511,8 @@ namespace PSAlphaFSnet
             Mandatory = true,
             ValueFromPipeline = true,
             ValueFromPipelineByPropertyName = true,
-            ParameterSetName = "Path")
+            ParameterSetName = "Path",
+            HelpMessage = "Path to the item to remove. Accepts pipe input.")
             ]
         public string[] FullName
         {
@@ -499,7 +530,8 @@ namespace PSAlphaFSnet
             Mandatory = false,
             ValueFromPipeline = false,
             ValueFromPipelineByPropertyName = true,
-            ParameterSetName = "Literal")
+            ParameterSetName = "Literal",
+            HelpMessage = "Literal path of item to remove")
         ]
         [Alias("PSPath")]
         [ValidateNotNullOrEmpty]
@@ -512,11 +544,11 @@ namespace PSAlphaFSnet
         }
         private string[] _path, _litpath;
 
-        [Parameter()]
+        [Parameter(HelpMessage = "Recurse into subdirectories")]
         public SwitchParameter Recurse { get; set; }
-        [Parameter()]
+        [Parameter(HelpMessage = "Force the deletion of protected files")]
         public SwitchParameter Force { get; set; }
-        [Parameter()]
+        [Parameter(HelpMessage = "Simulate and print what would happen")]
         public SwitchParameter WhatIf { get; set; }
         protected override void BeginProcessing()
         {
