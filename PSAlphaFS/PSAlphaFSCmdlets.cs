@@ -316,7 +316,8 @@ namespace PSAlphaFSnet
         public string Destination { get; set; }
         [Parameter()]
         public SwitchParameter Force { get; set; }
-
+        [Parameter()]
+        public SwitchParameter WhatIf { get; set; }
         protected override void BeginProcessing()
         {
 
@@ -347,10 +348,16 @@ namespace PSAlphaFSnet
                     tmpdst = Path.Combine(dstpath, Path.GetFileName(origpath));
                 }
 
-                if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
-                    Directory.Copy(origpath, tmpdst, Force);
-                else
-                    File.Copy(origpath, tmpdst, Force);
+                if (!WhatIf)
+                {
+                    if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                        Directory.Copy(origpath, tmpdst, Force);
+                    else
+                        File.Copy(origpath, tmpdst, Force);
+                }else
+                {
+                    WriteObject("Copy Item " + origpath + " to " + tmpdst);
+                }
             }
         }
     }
@@ -399,7 +406,8 @@ namespace PSAlphaFSnet
         public string Destination { get; set; }
         [Parameter()]
         public SwitchParameter Force { get; set; }
-
+        [Parameter()]
+        public SwitchParameter WhatIf { get; set; }
         protected override void BeginProcessing()
         {
 
@@ -431,10 +439,17 @@ namespace PSAlphaFSnet
                     tmpdst = Path.Combine(dstpath, Path.GetFileName(origpath));
                 }
 
-                if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
-                    Directory.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                if (!WhatIf)
+                {
+                    if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                        Directory.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                    else
+                        File.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                }
                 else
-                    File.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                {
+                    WriteObject("Move Item " + origpath + " to " + tmpdst);
+                }
             }
         }
     }
@@ -479,7 +494,8 @@ namespace PSAlphaFSnet
         public SwitchParameter Recurse { get; set; }
         [Parameter()]
         public SwitchParameter Force { get; set; }
-
+        [Parameter()]
+        public SwitchParameter WhatIf { get; set; }
         protected override void BeginProcessing()
         {
 
@@ -503,10 +519,17 @@ namespace PSAlphaFSnet
             {
                 FileInfo pO = new FileInfo(origpath);
 
-                if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
-                    Directory.Delete(origpath, Recurse, Force);
+                if (!WhatIf)
+                {
+                    if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                        Directory.Delete(origpath, Recurse, Force);
+                    else
+                        File.Delete(origpath, Force);
+                }
                 else
-                    File.Delete(origpath, Force);
+                {
+                    WriteObject("Delete Item " + origpath);
+                }
             }
         }
 
