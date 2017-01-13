@@ -263,21 +263,28 @@ namespace PSAlphaFSnet
 
         protected override void ProcessRecord()
         {
-            ProviderInfo provider;
-            PSDriveInfo drive;
-            List<string> Paths = new List<string>();
-            if (_path != null)
-                foreach (var s in _path)
-                    Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
-
-            if (_litpath != null)
-                foreach (var s in _litpath)
-                    Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
-
-            foreach (var ptmp in Paths)
+            try
             {
-                var p = this.GetUnresolvedProviderPathFromPSPath(ptmp);
-                WriteObject(new FileInfo(p));
+                ProviderInfo provider;
+                PSDriveInfo drive;
+                List<string> Paths = new List<string>();
+                if (_path != null)
+                    foreach (var s in _path)
+                        Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
+
+                if (_litpath != null)
+                    foreach (var s in _litpath)
+                        Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
+
+                foreach (var ptmp in Paths)
+                {
+                    var p = this.GetUnresolvedProviderPathFromPSPath(ptmp);
+                    WriteObject(new FileInfo(p));
+                }
+            }
+            catch (PipelineStoppedException e)
+            {
+                return;
             }
         }
     }
@@ -336,6 +343,9 @@ namespace PSAlphaFSnet
         public SwitchParameter PassThru { get; set; }
         [Parameter(HelpMessage = "Give out the old items after copying")]
         public SwitchParameter PassOriginal { get; set; }
+        [Parameter(HelpMessage = "Log Actions to this variable")]
+        public string LogVariable { get; set; }
+
         protected override void BeginProcessing()
         {
 
@@ -343,52 +353,62 @@ namespace PSAlphaFSnet
 
         protected override void ProcessRecord()
         {
-            ProviderInfo provider;
-            PSDriveInfo drive;
-            List<string> Paths = new List<string>();
-            if (_path != null)
-                foreach (var s in _path)
-                    Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
-
-            if (_litpath != null)
-                foreach (var s in _litpath)
-                    Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
-
-            string dstpath = this.GetUnresolvedProviderPathFromPSPath(Destination);
-            FileInfo dstobj = new FileInfo(dstpath);
-
-            foreach (string origpath in Paths)
+            try
             {
-                string tmpdst = dstpath;
-                FileInfo pO = new FileInfo(origpath);
-                if (Directory.Exists(dstpath))
-                {
-                    tmpdst = Path.Combine(dstpath, Path.GetFileName(origpath));
-                }
+                ProviderInfo provider;
+                PSDriveInfo drive;
+                List<string> Paths = new List<string>();
+                if (_path != null)
+                    foreach (var s in _path)
+                        Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
 
-                if (!WhatIf)
+                if (_litpath != null)
+                    foreach (var s in _litpath)
+                        Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
+
+                string dstpath = this.GetUnresolvedProviderPathFromPSPath(Destination);
+                FileInfo dstobj = new FileInfo(dstpath);
+
+                foreach (string origpath in Paths)
                 {
-                    if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                    string tmpdst = dstpath;
+                    FileInfo pO = new FileInfo(origpath);
+                    if (Directory.Exists(dstpath))
                     {
-                        Directory.Copy(origpath, tmpdst, Force);
-                        if (PassThru)
-                            WriteObject(new DirectoryInfo(tmpdst));
-                        else if (PassOriginal)
-                            WriteObject(new DirectoryInfo(origpath));
+                        tmpdst = Path.Combine(dstpath, Path.GetFileName(origpath));
+                    }
+                    string Message = "Copy Item " + origpath + " to " + tmpdst;
+                    if (!WhatIf)
+                    {
+                        if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                        {
+                            Directory.Copy(origpath, tmpdst, Force);
+                            if (PassThru)
+                                WriteObject(new DirectoryInfo(tmpdst));
+                            else if (PassOriginal)
+                                WriteObject(new DirectoryInfo(origpath));
+                        }
+                        else
+                        {
+                            File.Copy(origpath, tmpdst, Force);
+                            if (PassThru)
+                                WriteObject(new FileInfo(tmpdst));
+                            else if (PassOriginal)
+                                WriteObject(pO);
+                        }
                     }
                     else
                     {
-                        File.Copy(origpath, tmpdst, Force);
-                        if (PassThru)
-                            WriteObject(new FileInfo(tmpdst));
-                        else if (PassOriginal)
-                            WriteObject(pO);
+                        Message = "Simulated " + Message;
+                        WriteObject(Message);
                     }
+                    if (this.LogVariable != null)
+                        VariableLogger.log(this.SessionState, LogVariable, Message);
                 }
-                else
-                {
-                    WriteObject("Copy Item " + origpath + " to " + tmpdst);
-                }
+            }
+            catch (PipelineStoppedException e)
+            {
+                return;
             }
         }
     }
@@ -448,6 +468,9 @@ namespace PSAlphaFSnet
         public SwitchParameter WhatIf { get; set; }
         [Parameter(HelpMessage = "Give out items after moving")]
         public SwitchParameter PassThru { get; set; }
+        [Parameter(HelpMessage = "Log Actions to this variable")]
+        public string LogVariable { get; set; }
+
         protected override void BeginProcessing()
         {
 
@@ -455,49 +478,61 @@ namespace PSAlphaFSnet
 
         protected override void ProcessRecord()
         {
-            ProviderInfo provider;
-            PSDriveInfo drive;
-            List<string> Paths = new List<string>();
-
-            if (_path != null)
-                foreach (var s in _path)
-                    Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
-
-            if (_litpath != null)
-                foreach (var s in _litpath)
-                    Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
-
-            string dstpath = this.GetUnresolvedProviderPathFromPSPath(Destination);
-            FileInfo dstobj = new FileInfo(dstpath);
-
-            foreach (string origpath in Paths)
+            try
             {
-                string tmpdst = dstpath;
-                FileInfo pO = new FileInfo(origpath);
-                if (Directory.Exists(dstpath))
-                {
-                    tmpdst = Path.Combine(dstpath, Path.GetFileName(origpath));
-                }
+                ProviderInfo provider;
+                PSDriveInfo drive;
+                List<string> Paths = new List<string>();
 
-                if (!WhatIf)
+                if (_path != null)
+                    foreach (var s in _path)
+                        Paths.AddRange(this.GetResolvedProviderPathFromPSPath(s, out provider));
+
+                if (_litpath != null)
+                    foreach (var s in _litpath)
+                        Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
+
+                string dstpath = this.GetUnresolvedProviderPathFromPSPath(Destination);
+                FileInfo dstobj = new FileInfo(dstpath);
+
+                foreach (string origpath in Paths)
                 {
-                    if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                    string tmpdst = dstpath;
+
+                    FileInfo pO = new FileInfo(origpath);
+                    if (Directory.Exists(dstpath))
                     {
-                        Directory.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
-                        if (PassThru)
-                            WriteObject(new DirectoryInfo(tmpdst));
+                        tmpdst = Path.Combine(dstpath, Path.GetFileName(origpath));
+                    }
+                    string Message = "Move Item " + origpath + " to " + tmpdst;
+
+                    if (!WhatIf)
+                    {
+                        if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                        {
+                            Directory.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                            if (PassThru)
+                                WriteObject(new DirectoryInfo(tmpdst));
+                        }
+                        else
+                        {
+                            File.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
+                            if (PassThru)
+                                WriteObject(new FileInfo(tmpdst));
+                        }
                     }
                     else
                     {
-                        File.Move(origpath, tmpdst, (Force) ? MoveOptions.ReplaceExisting : MoveOptions.None);
-                        if (PassThru)
-                            WriteObject(new FileInfo(tmpdst));
+                        Message = "Simulated " + Message;
+                        WriteObject(Message);
                     }
+                    if (this.LogVariable != null)
+                        VariableLogger.log(this.SessionState, LogVariable, Message);
                 }
-                else
-                {
-                    WriteObject("Move Item " + origpath + " to " + tmpdst);
-                }
+            }
+            catch (PipelineStoppedException e)
+            {
+                return;
             }
         }
     }
@@ -552,6 +587,8 @@ namespace PSAlphaFSnet
         public SwitchParameter WhatIf { get; set; }
         [Parameter(HelpMessage = "Pass the soon to be deleted items... useful for logging")]
         public SwitchParameter PassThru { get; set; }
+        [Parameter(HelpMessage = "Log Actions to this variable")]
+        public string LogVariable { get; set; }
         protected override void BeginProcessing()
         {
 
@@ -571,22 +608,34 @@ namespace PSAlphaFSnet
                 foreach (var s in _litpath)
                     Paths.Add(this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(s, out provider, out drive));
 
+
             foreach (string origpath in Paths)
             {
-                FileInfo pO = new FileInfo(origpath);
+                try
+                {
+                    FileInfo pO = new FileInfo(origpath);
+                    String Message = "Delete Item " + origpath;
 
-                if (!WhatIf)
-                {
-                    if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
-                        Directory.Delete(origpath, Recurse, Force);
+                    if (!WhatIf)
+                    {
+                        if (pO.Attributes.HasFlag(System.IO.FileAttributes.Directory))
+                            Directory.Delete(origpath, Recurse, Force);
+                        else
+                            File.Delete(origpath, Force);
+                        if (PassThru)
+                            WriteObject(pO);
+                    }
                     else
-                        File.Delete(origpath, Force);
-                    if (PassThru)
-                        WriteObject(pO);
+                    {
+                        Message = "Simulated " + Message;
+                        WriteObject(Message);
+                    }
+                    if (this.LogVariable != null)
+                        VariableLogger.log(this.SessionState, LogVariable, Message);
                 }
-                else
+                catch (PipelineStoppedException e)
                 {
-                    WriteObject("Delete Item " + origpath);
+                    return;
                 }
             }
         }
@@ -652,30 +701,37 @@ namespace PSAlphaFSnet
 
             protected override void ProcessRecord()
             {
-                foreach (PSObject o in InputObject)
+                try
                 {
-                    count++;
-                    foreach (string parm in Property)
+                    foreach (PSObject o in InputObject)
                     {
-                        try
+                        count++;
+                        foreach (string parm in Property)
                         {
-                            double v = Convert.ToDouble(o.Properties[parm].Value);
-                            Data d = data[parm];
-                            d.Sum += v;
-                            d.Average = d.Sum / count;
-                            d.Maximum = (double.IsNaN(d.Maximum)) ? v : Math.Max(d.Maximum, v);
-                            d.Minimum = (double.IsNaN(d.Minimum)) ? v : Math.Min(d.Minimum, v);
-                            hasData = true;
-                            if (!NoOutput)
-                                DisplayRes();
+                            try
+                            {
+                                double v = Convert.ToDouble(o.Properties[parm].Value);
+                                Data d = data[parm];
+                                d.Sum += v;
+                                d.Average = d.Sum / count;
+                                d.Maximum = (double.IsNaN(d.Maximum)) ? v : Math.Max(d.Maximum, v);
+                                d.Minimum = (double.IsNaN(d.Minimum)) ? v : Math.Min(d.Minimum, v);
+                                hasData = true;
+                                if (!NoOutput)
+                                    DisplayRes();
+                            }
+                            catch
+                            {
+                                data[parm].NotEvaluated++;
+                            }
                         }
-                        catch
-                        {
-                            data[parm].NotEvaluated++;
-                        }
+                        if (!GetStats)
+                            WriteObject(o);
                     }
-                    if (!GetStats)
-                        WriteObject(o);
+                }
+                catch (PipelineStoppedException e)
+                {
+                    return;
                 }
             }
 
@@ -753,6 +809,22 @@ namespace PSAlphaFSnet
                 double num = Math.Round(bytes / Math.Pow(1024, place), 1);
                 return (Math.Sign(byteCount) * num).ToString() + " " + suf[place];
             }
+        }
+    }
+    public static class VariableLogger
+    {
+        public static void log(SessionState sess, string VarName, string Message)
+        {
+            PSVariable v = sess.PSVariable.Get(VarName);
+            object o = null;
+            if (v != null)
+                o = v.Value;
+            if (o == null || !(o is List<string>))
+            {
+                o = new List<string>();
+            }
+            ((List<String>)o).Add(Message);
+            sess.PSVariable.Set(VarName, o);
         }
     }
 }

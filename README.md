@@ -10,8 +10,8 @@ By now, this module allows on-the-fly pipelineing of objects found using get-lon
 ```
 Get-LongChildItem -Recurce -Force -Include '*.jpg' -Exclude '*important*' -Path x:\ 
 | Watch-Pipeline -Property Length -Byte
-| Copy-LongItem -Destination B:\Backup -PassOriginal -Whatif
-| Remove-LongItem -Whatif
+| Copy-LongItem -Destination B:\Backup -PassOriginal -LogVariable log
+| Remove-LongItem -Whatif -LogVariable log
 ```
 Implemented
 -----------
