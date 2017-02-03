@@ -538,6 +538,7 @@ namespace PSAlphaFSnet
     }
 
     [Cmdlet(VerbsCommon.Remove, "LongItem", DefaultParameterSetName = "Path")]
+
     public class RemoveLongItem : PSCmdlet
     {
         [Alias("Path")]
@@ -639,178 +640,180 @@ namespace PSAlphaFSnet
                 }
             }
         }
+    }
 
-        [Cmdlet(VerbsCommon.Watch, "Pipeline")]
-        public class WatchPipeline : PSCmdlet
+    [Cmdlet(VerbsCommon.Watch, "Pipeline")]
+    public class WatchPipeline : PSCmdlet
+    {
+        [Parameter(Mandatory = true, ValueFromPipeline = true, HelpMessage = "Objects to measure. By default, these Objects are passed through the pipeline.")]
+        public PSObject[] InputObject { get; set; }
+        [Parameter(HelpMessage = "The Properties of the input objects to measure (e.g. Length for Files)")]
+        public string[] Property { get; set; }
+        [Parameter(HelpMessage = "Formats the output Values as Bytes (KB, MB etc)")]
+        public SwitchParameter Bytes { get; set; }
+        [Parameter(HelpMessage = "Returns an objects with the stats when finished instead of passing through the input objects")]
+        public SwitchParameter GetStats { get; set; }
+        [Parameter(HelpMessage = "Surpresses live output... if you really want")]
+        public SwitchParameter NoOutput { get; set; }
+
+        private Dictionary<string, Data> data = new Dictionary<string, Data>();
+        private long count = 0;
+        private bool hasData = false;
+        public class Data
         {
-            [Parameter(Mandatory = true, ValueFromPipeline = true, HelpMessage = "Objects to measure. By default, these Objects are passed through the pipeline.")]
-            public PSObject[] InputObject { get; set; }
-            [Parameter(HelpMessage = "The Properties of the input objects to measure (e.g. Length for Files)")]
-            public string[] Property { get; set; }
-            [Parameter(HelpMessage = "Formats the output Values as Bytes (KB, MB etc)")]
-            public SwitchParameter Bytes { get; set; }
-            [Parameter(HelpMessage = "Returns an objects with the stats when finished instead of passing through the input objects")]
-            public SwitchParameter GetStats { get; set; }
-            [Parameter(HelpMessage = "Surpresses live output... if you really want")]
-            public SwitchParameter NoOutput { get; set; }
+            public string Name = "";
+            public double Sum = 0;
+            public double Average = double.NaN;
+            public double Maximum = double.NaN;
+            public double Minimum = double.NaN;
+            public long NotEvaluated = 0;
 
-            private Dictionary<string, Data> data = new Dictionary<string, Data>();
-            private long count = 0;
-            private bool hasData = false;
-            public class Data
+            public Data(string name)
             {
-                public string Name = "";
-                public double Sum = 0;
-                public double Average = double.NaN;
-                public double Maximum = double.NaN;
-                public double Minimum = double.NaN;
-                public long NotEvaluated = 0;
-
-                public Data(string name)
-                {
-                    Name = name;
-                }
-            }
-            public class ByteData
-            {
-                public string Name;
-                public ReadableByte Sum;
-                public ReadableByte Average;
-                public ReadableByte Maximum;
-                public ReadableByte Minimum;
-                public long NotEvaluated;
-
-                public ByteData(Data src)
-                {
-                    Name = src.Name;
-                    Sum = src.Sum;
-                    Average = src.Average;
-                    Maximum = src.Maximum;
-                    Minimum = src.Minimum;
-                    NotEvaluated = src.NotEvaluated;
-                }
-            }
-
-            ProgressRecord pr = new ProgressRecord(0, "Measuring Objects in Pipeline", "test");
-
-            protected override void BeginProcessing()
-            {
-                foreach (string parm in Property)
-                    data.Add(parm, new Data(parm));
-            }
-
-            protected override void ProcessRecord()
-            {
-                try
-                {
-                    foreach (PSObject o in InputObject)
-                    {
-                        count++;
-                        foreach (string parm in Property)
-                        {
-                            try
-                            {
-                                double v = Convert.ToDouble(o.Properties[parm].Value);
-                                Data d = data[parm];
-                                d.Sum += v;
-                                d.Average = d.Sum / count;
-                                d.Maximum = (double.IsNaN(d.Maximum)) ? v : Math.Max(d.Maximum, v);
-                                d.Minimum = (double.IsNaN(d.Minimum)) ? v : Math.Min(d.Minimum, v);
-                                hasData = true;
-                                if (!NoOutput)
-                                    DisplayRes();
-                            }
-                            catch
-                            {
-                                data[parm].NotEvaluated++;
-                            }
-                        }
-                        if (!GetStats)
-                            WriteObject(o);
-                    }
-                }
-                catch (PipelineStoppedException e)
-                {
-                    return;
-                }
-            }
-
-            protected override void EndProcessing()
-            {
-                if (GetStats)
-                {
-                    if (hasData)
-                        if (Bytes)
-                            foreach (var d in data.Values)
-                                WriteObject(new ByteData(d));
-                        else
-                            WriteObject(data.Values.ToArray());
-                    else
-                        WriteObject(count);
-                }
-            }
-
-            protected override void StopProcessing()
-            {
-                WriteWarning("Stopped Operation");
-                EndProcessing();
-            }
-
-            private void DisplayRes()
-            {
-                string prog = string.Format("Count={0,4}", count);
-                foreach (var kv in data)
-                {
-                    var parm = kv.Key;
-                    dynamic dat;
-
-                    if (Bytes)
-                        dat = new ByteData(kv.Value);
-                    else
-                        dat = kv.Value;
-
-                    prog += string.Format("{0,10}: {1,4}={2,8}{3,8}={4,8}{5,8}={6,8}{7,8}={8,8}", parm, "Sum", dat.Sum, "Average", dat.Average, "Max", dat.Maximum, "Min", dat.Minimum);
-                }
-                pr.CurrentOperation = prog;
-                CommandRuntime.WriteProgress(pr);
+                Name = name;
             }
         }
-        public class ReadableByte
+        public class ByteData
         {
-            public double Value { get; private set; }
+            public string Name;
+            public ReadableByte Sum;
+            public ReadableByte Average;
+            public ReadableByte Maximum;
+            public ReadableByte Minimum;
+            public long NotEvaluated;
 
-            public ReadableByte(double d)
+            public ByteData(Data src)
             {
-                Value = d;
+                Name = src.Name;
+                Sum = src.Sum;
+                Average = src.Average;
+                Maximum = src.Maximum;
+                Minimum = src.Minimum;
+                NotEvaluated = src.NotEvaluated;
             }
+        }
 
-            public static implicit operator ReadableByte(double d)
-            {
-                return new ReadableByte(d);
-            }
+        ProgressRecord pr = new ProgressRecord(0, "Measuring Objects in Pipeline", "test");
 
-            public static implicit operator double(ReadableByte r)
-            {
-                return r.Value;
-            }
+        protected override void BeginProcessing()
+        {
+            foreach (string parm in Property)
+                data.Add(parm, new Data(parm));
+        }
 
-            public override string ToString()
+        protected override void ProcessRecord()
+        {
+            try
             {
-                return B2S(this);
+                foreach (PSObject o in InputObject)
+                {
+                    count++;
+                    foreach (string parm in Property)
+                    {
+                        try
+                        {
+                            double v = Convert.ToDouble(o.Properties[parm].Value);
+                            Data d = data[parm];
+                            d.Sum += v;
+                            d.Average = d.Sum / count;
+                            d.Maximum = (double.IsNaN(d.Maximum)) ? v : Math.Max(d.Maximum, v);
+                            d.Minimum = (double.IsNaN(d.Minimum)) ? v : Math.Min(d.Minimum, v);
+                            hasData = true;
+                            if (!NoOutput)
+                                DisplayRes();
+                        }
+                        catch
+                        {
+                            data[parm].NotEvaluated++;
+                        }
+                    }
+                    if (!GetStats)
+                        WriteObject(o);
+                }
             }
+            catch (PipelineStoppedException e)
+            {
+                return;
+            }
+        }
 
-            string B2S(double byteCount)
+        protected override void EndProcessing()
+        {
+            if (GetStats)
             {
-                string[] suf = { "B", "KB", "MB", "GB", "TB", "PB", "EB" };
-                if (byteCount == 0)
-                    return "0" + suf[0];
-                double bytes = Math.Abs(byteCount);
-                int place = Convert.ToInt32(Math.Floor(Math.Log(bytes, 1024)));
-                double num = Math.Round(bytes / Math.Pow(1024, place), 1);
-                return (Math.Sign(byteCount) * num).ToString() + " " + suf[place];
+                if (hasData)
+                    if (Bytes)
+                        foreach (var d in data.Values)
+                            WriteObject(new ByteData(d));
+                    else
+                        WriteObject(data.Values.ToArray());
+                else
+                    WriteObject(count);
             }
+        }
+
+        protected override void StopProcessing()
+        {
+            WriteWarning("Stopped Operation");
+            EndProcessing();
+        }
+
+        private void DisplayRes()
+        {
+            string prog = string.Format("Count={0,4}", count);
+            foreach (var kv in data)
+            {
+                var parm = kv.Key;
+                dynamic dat;
+
+                if (Bytes)
+                    dat = new ByteData(kv.Value);
+                else
+                    dat = kv.Value;
+
+                prog += string.Format("{0,10}: {1,4}={2,8}{3,8}={4,8}{5,8}={6,8}{7,8}={8,8}", parm, "Sum", dat.Sum, "Average", dat.Average, "Max", dat.Maximum, "Min", dat.Minimum);
+            }
+            pr.CurrentOperation = prog;
+            CommandRuntime.WriteProgress(pr);
         }
     }
+
+    public class ReadableByte
+    {
+        public double Value { get; private set; }
+
+        public ReadableByte(double d)
+        {
+            Value = d;
+        }
+
+        public static implicit operator ReadableByte(double d)
+        {
+            return new ReadableByte(d);
+        }
+
+        public static implicit operator double(ReadableByte r)
+        {
+            return r.Value;
+        }
+
+        public override string ToString()
+        {
+            return B2S(this);
+        }
+
+        string B2S(double byteCount)
+        {
+            string[] suf = { "B", "KB", "MB", "GB", "TB", "PB", "EB" };
+            if (byteCount == 0)
+                return "0" + suf[0];
+            double bytes = Math.Abs(byteCount);
+            int place = Convert.ToInt32(Math.Floor(Math.Log(bytes, 1024)));
+            double num = Math.Round(bytes / Math.Pow(1024, place), 1);
+            return (Math.Sign(byteCount) * num).ToString() + " " + suf[place];
+        }
+    }
+
     public static class VariableLogger
     {
         public static void log(SessionState sess, string VarName, string Message)
