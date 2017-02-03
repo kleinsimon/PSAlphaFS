@@ -662,6 +662,7 @@ namespace PSAlphaFSnet
         public class Data
         {
             public string Name = "";
+            public long Count = 0;
             public double Sum = 0;
             public double Average = double.NaN;
             public double Maximum = double.NaN;
@@ -676,6 +677,7 @@ namespace PSAlphaFSnet
         public class ByteData
         {
             public string Name;
+            public long Count = 0;
             public ReadableByte Sum;
             public ReadableByte Average;
             public ReadableByte Maximum;
@@ -690,6 +692,7 @@ namespace PSAlphaFSnet
                 Maximum = src.Maximum;
                 Minimum = src.Minimum;
                 NotEvaluated = src.NotEvaluated;
+                Count = src.Count;
             }
         }
 
@@ -714,6 +717,7 @@ namespace PSAlphaFSnet
                         {
                             double v = Convert.ToDouble(o.Properties[parm].Value);
                             Data d = data[parm];
+                            d.Count = count;
                             d.Sum += v;
                             d.Average = d.Sum / count;
                             d.Maximum = (double.IsNaN(d.Maximum)) ? v : Math.Max(d.Maximum, v);
